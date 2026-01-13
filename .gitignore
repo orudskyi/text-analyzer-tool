@@ -1,0 +1,19 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments (Created by uv)
+.venv/
+venv/
+env/
+
+# IDE specific settings (Optional but recommended)
+.vscode/
+.idea/
+
+# Data files
+#data/
+# Or keep data folder but ignore content inside, except .gitkeep
+data/*
+!data/.gitkeep
