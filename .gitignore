@@ -17,3 +17,4 @@ env/
 # Or keep data folder but ignore content inside, except .gitkeep
 data/*
 !data/.gitkeep
+reports/*
