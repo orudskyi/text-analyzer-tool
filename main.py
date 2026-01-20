@@ -1,132 +1,134 @@
-from collections import Counter
-from pathlib import Path
 import re
+from pathlib import Path
+import pandas as pd
+import matplotlib.pyplot as plt
+from typing import Set
 
 
 def read_file(file_path: Path) -> str:
-    """
-    Reads the content of a text file safely.
-    """
+    """Reads the content of a text file safely."""
     try:
-        with open(file_path, "r", encoding="utf-8") as file:
+        with open(file_path, mode="r", encoding="utf-8") as file:
             return file.read()
     except FileNotFoundError:
         print(f"Error: The file at {file_path} was not found.")
         return ""
     except Exception as e:
-        print(f"An unexpected error occured: {e}")
+        print(f"An unexpected error occurred: {e}")
         return ""
 
 
 def clean_and_tokenize(text: str, remove_stopwords: bool = True) -> list[str]:
-    """
-    Normalizes text and splits it into a list of words.
-    
-    Processing steps:
-    1. Convert to lowercase (normalization).
-    2. Use Regex to find words (removes punctuation).
-    """
+    """Normalizes text and splits into words."""
     text = text.lower()
-    words = re.findall(r'\b\w+\b', text)
-    
+    words = re.findall(r"\b\w+\b", text)
+
     if remove_stopwords:
-        stop_words: set[str] = {
-            "the", "is", "a", "an", "and", "or", "but", 
-            "to", "of", "in", "on", "at", "it", "that", "this"
+        stop_words: Set[str] = {
+            "the",
+            "is",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "to",
+            "of",
+            "in",
+            "on",
+            "at",
+            "it",
+            "that",
+            "this",
         }
-        
         words = [word for word in words if word not in stop_words]
-    
+
     return words
 
-def extract_emails(text: str) -> list[str]:
+
+def generate_visualization(df: pd.DataFrame, output_path: Path):
     """
-    Finds all email addresses using a Regular Expression.
+    Creates a bar chart of the top 10 words using Matplotlib.
     """
-    pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-    return re.findall(pattern, text)
+    # Take top 10 for the plot
+    top_10 = df.head(10)
+
+    # Create a figure (canvas)
+    plt.figure(figsize=(10, 6))
+
+    # Plot bar chart: x=word, y=count
+    plt.bar(top_10["word"], top_10["count"], color="skyblue")
+
+    plt.title("Top 10 Most Frequent Words", fontsize=14)
+    plt.xlabel("Words", fontsize=12)
+    plt.ylabel("Frequency", fontsize=12)
+    plt.xticks(rotation=45)  # Rotate labels for better readability
+
+    # Adjust layout to prevent cutting off labels
+    plt.tight_layout()
+
+    # Save to file
+    plt.savefig(output_path)
+    print(f"[SUCCESS] Chart saved to: {output_path.absolute()}")
+
+    # Close the plot to free memory
+    plt.close()
 
 
-def analyze_frequencies(words: list[str]) -> Counter:
-    """Counts word occurrences"""
-    return Counter(words)
-
-def create_report_string(
-    total_words: int,
-    unique_words: int,
-    top_words: list[tuple],
-    emails: list[str]
-) -> str:
+def process_with_pandas(words: list[str]):
     """
-    Generates the report as a single string.
+    Main analysis logic using Pandas.
+    Replaces the old 'analyze_frequencies' and 'create_report_string' logic.
     """
-    lines = []
-    lines.append("="*30)
-    lines.append("   TEXT ANALYSIS REPORT")
-    lines.append("="*30)
-    lines.append(f"Total Words (clean): {total_words}")
-    lines.append(f"Unique Words:        {unique_words}")
-    
-    lines.append("-" * 30)
-    lines.append("Top 10 Most Frequent Words:")
-    for rank, (word, count) in enumerate(top_words, start=1):
-        lines.append(f"{rank}. {word:<15} : {count}")
-        
-    lines.append("-" * 30)
-    lines.append(f"Found Emails ({len(emails)}):")
-    if emails:
-        for email in emails:
-            lines.append(f"- {email}")
-    else:
-        lines.append("No emails found.")
-        
-    lines.append("="*30)
-    
-    # Join all lines with a newline character
-    return "\n".join(lines)
+    # 1. Create a DataFrame (Imagine an Excel table with one column "word")
+    df = pd.DataFrame(words, columns=["word"])
 
-def save_report_to_file(report_content: str, filename: str = "report.txt"):
-    """Saves the report string to a file."""
-    output_dir = Path("reports")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / filename
-    try:
-        # mode='w' creates the file or overwrites it if it exists
-        with open(output_path, mode='w', encoding='utf-8') as file:
-            file.write(report_content)
-        print(f"\n[SUCCESS] Report saved to: {output_path.absolute()}")
-    except Exception as e:
-        print(f"\n[ERROR] Could not save report: {e}")
+    if df.empty:
+        print("No data to analyze.")
+        return
+
+    # 2. Calculate Frequencies
+    # value_counts() is the Pandas equivalent of GroupBy + Count
+    # reset_index() converts the result back to a nice table with columns 'word' and 'count'
+    word_counts = df["word"].value_counts().reset_index()
+    word_counts.columns = ["word", "count"]  # Rename columns explicitly
+
+    # 3. Display Stats in Console
+    print("\n" + "=" * 30)
+    print("   PANDAS ANALYSIS REPORT")
+    print("=" * 30)
+    print(f"Total Words:  {len(df)}")
+    print(f"Unique Words: {len(word_counts)}")
+    print("-" * 30)
+    print("Top 10 Words:")
+    print(word_counts.head(10).to_string(index=False))  # to_string() formats it nicely
+    print("=" * 30 + "\n")
+
+    # 4. Save Report (CSV) - Standard Data format
+    reports_dir = Path("reports")
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    csv_path = reports_dir / "word_stats.csv"
+    word_counts.to_csv(csv_path, index=False)
+    print(f"[SUCCESS] Data saved to CSV: {csv_path.absolute()}")
+
+    # 5. Generate Visualization
+    chart_path = reports_dir / "top_words_chart.png"
+    generate_visualization(word_counts, chart_path)
+
 
 def main():
-    """Main execution flow."""
     input_path = Path("data/sample.txt")
     print(f"--- Processing file: {input_path} ---")
-    
-    # 1. Extract
+
     raw_text = read_file(input_path)
     if not raw_text:
         return
 
-    # 2. Transform & Mining
     tokens = clean_and_tokenize(raw_text, remove_stopwords=True)
-    emails = extract_emails(raw_text) 
-    
-    # 3. Analyze
-    word_stats = analyze_frequencies(tokens)
-    top_10 = word_stats.most_common(10)
-    
-    # 4. Generate Report
-    report = create_report_string(
-        total_words=sum(word_stats.values()), 
-        unique_words=len(word_stats), 
-        top_words=top_10,
-        emails=emails
-    )
-    
-    # 5. Output (Print & Save)
-    print(report)
-    save_report_to_file(report)
+
+    # Hand over control to Pandas logic
+    process_with_pandas(tokens)
 
 
 if __name__ == "__main__":
